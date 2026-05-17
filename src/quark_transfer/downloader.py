@@ -85,9 +85,20 @@ def _download_whole(
     bucket: Bucket | None,
     retries: int,
 ) -> None:
-    response = _request_with_retries(session, url, retries=retries, stream=True)
+    start = plan.part_path.stat().st_size if plan.resume and plan.part_path.exists() else 0
+    headers = {"Range": f"bytes={start}-"} if start else None
+    expected = {206} if start else None
+    response = _request_with_retries(
+        session,
+        url,
+        retries=retries,
+        stream=True,
+        headers=headers,
+        expected_status=expected,
+    )
+    mode = "ab" if start else "wb"
     try:
-        with plan.part_path.open("wb") as handle:
+        with plan.part_path.open(mode) as handle:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 if not chunk:
                     continue

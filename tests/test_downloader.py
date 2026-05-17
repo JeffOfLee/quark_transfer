@@ -81,6 +81,24 @@ def test_download_retries_transient_errors(tmp_path: Path):
     assert len(session.calls) == 2
 
 
+def test_download_resumes_existing_part_file_with_range_request(tmp_path: Path):
+    session = FakeSession([FakeResponse(b"lo", status_code=206)])
+    plan = make_plan(tmp_path, size=5)
+    plan.part_path.write_bytes(b"hel")
+    plan = DownloadPlan(
+        record=plan.record,
+        destination=plan.destination,
+        part_path=plan.part_path,
+        skip=False,
+        resume=True,
+    )
+
+    download_files([plan], lambda record: DownloadUrl("https://download/file"), session=session)
+
+    assert plan.destination.read_bytes() == b"hello"
+    assert session.calls[0][1]["headers"]["Range"] == "bytes=3-"
+
+
 def test_download_fatal_status_raises_download_error(tmp_path: Path):
     session = FakeSession([FakeResponse(b"missing", status_code=404)])
     plan = make_plan(tmp_path)
