@@ -54,7 +54,8 @@ class QuarkClient:
             batch = data.get("list") or []
             items.extend(self._parse_item(raw, parent_fid) for raw in batch)
 
-            total = int(data.get("total") or len(items))
+            metadata = payload.get("metadata") or {}
+            total = int(data.get("total") or metadata.get("_total") or len(items))
             if len(items) >= total or not batch:
                 return items
             page += 1

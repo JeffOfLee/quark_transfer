@@ -63,6 +63,32 @@ def test_list_folder_paginates_and_sends_cookie_header():
     assert session.calls[1][2]["params"]["_page"] == "2"
 
 
+def test_list_folder_uses_metadata_total_for_pagination():
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "code": 0,
+                    "data": {"list": [{"fid": "a", "file_name": "a.txt", "size": 10, "file_type": 0}]},
+                    "metadata": {"_total": 2},
+                }
+            ),
+            FakeResponse(
+                {
+                    "code": 0,
+                    "data": {"list": [{"fid": "b", "file_name": "b.txt", "size": 10, "file_type": 0}]},
+                    "metadata": {"_total": 2},
+                }
+            ),
+        ]
+    )
+    client = QuarkClient("cookie-value", session=session, page_size=1)
+
+    items = client.list_folder("folder-id")
+
+    assert [item.fid for item in items] == ["a", "b"]
+
+
 def test_list_folder_raises_auth_error_for_unauthorized_response():
     session = FakeSession([FakeResponse({"code": 401, "message": "not login"})])
     client = QuarkClient("cookie-value", session=session)
