@@ -55,13 +55,20 @@ def test_download_writes_part_then_renames(tmp_path: Path):
     bucket = RecordingBucket()
     plan = make_plan(tmp_path)
 
-    download_files([plan], lambda record: DownloadUrl("https://download/file"), session=session, bucket=bucket)
+    download_files(
+        [plan],
+        lambda record: DownloadUrl("https://download/file", headers={"Cookie": "cookie-value", "Referer": "ref"}),
+        session=session,
+        bucket=bucket,
+    )
 
     assert plan.destination.read_bytes() == b"hello"
     assert not plan.part_path.exists()
     assert bucket.consumed == [5]
     assert session.calls[0][1]["timeout"] == 30
     assert "quark-cloud-drive" in session.calls[0][1]["headers"]["User-Agent"]
+    assert session.calls[0][1]["headers"]["Cookie"] == "cookie-value"
+    assert session.calls[0][1]["headers"]["Referer"] == "ref"
 
 
 def test_download_skips_marked_plan_without_request(tmp_path: Path):

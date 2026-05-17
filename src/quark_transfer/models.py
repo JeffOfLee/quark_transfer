@@ -32,4 +32,4 @@ class DownloadRecord:
 class DownloadUrl:
     url: str
     accelerated: bool = False
-
+    headers: dict[str, str] | None = None

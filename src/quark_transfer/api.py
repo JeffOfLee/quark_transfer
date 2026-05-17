@@ -89,17 +89,17 @@ class QuarkClient:
         if vip_accel == VipAccelMode.OFF:
             if not normal_url:
                 raise QuarkTransferError(f"No normal download URL returned for fid: {fid}")
-            return DownloadUrl(normal_url, accelerated=False)
+            return DownloadUrl(normal_url, accelerated=False, headers=self._download_headers())
 
         if vip_url:
-            return DownloadUrl(vip_url, accelerated=True)
+            return DownloadUrl(vip_url, accelerated=True, headers=self._download_headers())
 
         if vip_accel == VipAccelMode.ON:
             raise ConfigError("VIP accelerated download URL is not available for this resource/account.")
 
         if not normal_url:
             raise QuarkTransferError(f"No download URL returned for fid: {fid}")
-        return DownloadUrl(normal_url, accelerated=False)
+        return DownloadUrl(normal_url, accelerated=False, headers=self._download_headers())
 
     def _get_json(self, url: str, **kwargs: Any) -> dict[str, Any]:
         response = self.session.get(url, headers=self._headers(), timeout=self.timeout, **kwargs)
@@ -113,6 +113,13 @@ class QuarkClient:
         return {
             "Cookie": self.cookie,
             "Accept": "application/json, text/plain, */*",
+            "User-Agent": self.USER_AGENT,
+            "Referer": "https://pan.quark.cn/",
+        }
+
+    def _download_headers(self) -> dict[str, str]:
+        return {
+            "Cookie": self.cookie,
             "User-Agent": self.USER_AGENT,
             "Referer": "https://pan.quark.cn/",
         }

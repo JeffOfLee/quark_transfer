@@ -74,12 +74,12 @@ def _download_one(
     timeout: int,
 ) -> None:
     plan.destination.parent.mkdir(parents=True, exist_ok=True)
-    download_url = url_provider(plan.record).url
+    download_url = url_provider(plan.record)
 
     if plan.record.size >= range_threshold and plan.record.size > chunk_size:
-        _download_ranges(plan, download_url, session, bucket, chunk_size, chunk_concurrency, retries, timeout)
+        _download_ranges(plan, download_url.url, download_url.headers, session, bucket, chunk_size, chunk_concurrency, retries, timeout)
     else:
-        _download_whole(plan, download_url, session, bucket, retries, timeout)
+        _download_whole(plan, download_url.url, download_url.headers, session, bucket, retries, timeout)
 
     if plan.destination.exists():
         plan.destination.unlink()
@@ -89,13 +89,16 @@ def _download_one(
 def _download_whole(
     plan: DownloadPlan,
     url: str,
+    extra_headers: dict[str, str] | None,
     session: requests.Session,
     bucket: Bucket | None,
     retries: int,
     timeout: int,
 ) -> None:
     start = plan.part_path.stat().st_size if plan.resume and plan.part_path.exists() else 0
-    headers = {"Range": f"bytes={start}-"} if start else None
+    headers = dict(extra_headers or {})
+    if start:
+        headers["Range"] = f"bytes={start}-"
     expected = {206} if start else None
     response = _request_with_retries(
         session,
@@ -124,6 +127,7 @@ def _download_whole(
 def _download_ranges(
     plan: DownloadPlan,
     url: str,
+    extra_headers: dict[str, str] | None,
     session: requests.Session,
     bucket: Bucket | None,
     chunk_size: int,
@@ -142,7 +146,7 @@ def _download_ranges(
 
     with ThreadPoolExecutor(max_workers=max(1, chunk_concurrency)) as executor:
         futures = [
-            executor.submit(_download_range, plan, url, session, bucket, start, end, retries, timeout)
+            executor.submit(_download_range, plan, url, extra_headers, session, bucket, start, end, retries, timeout)
             for start, end in ranges
         ]
         for future in as_completed(futures):
@@ -152,6 +156,7 @@ def _download_ranges(
 def _download_range(
     plan: DownloadPlan,
     url: str,
+    extra_headers: dict[str, str] | None,
     session: requests.Session,
     bucket: Bucket | None,
     start: int,
@@ -164,7 +169,7 @@ def _download_range(
         url,
         retries=retries,
         stream=True,
-        headers={"Range": f"bytes={start}-{end}"},
+        headers={**(extra_headers or {}), "Range": f"bytes={start}-{end}"},
         expected_status={206},
         timeout=timeout,
     )
