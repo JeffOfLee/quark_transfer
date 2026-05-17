@@ -125,8 +125,7 @@ class QuarkClient:
         return payload
 
     def _parse_item(self, raw: dict[str, Any], parent_fid: str | None) -> CloudItem:
-        file_type = raw.get("file_type")
-        is_folder = bool(raw.get("dir") or raw.get("is_dir") or file_type == 1)
+        is_folder = bool(raw.get("dir") or raw.get("is_dir"))
         return CloudItem(
             fid=str(raw.get("fid") or raw.get("file_id")),
             name=str(raw.get("file_name") or raw.get("name")),

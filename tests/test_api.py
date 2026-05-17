@@ -44,7 +44,7 @@ def test_list_folder_paginates_and_sends_cookie_header():
                 {
                     "code": 0,
                     "data": {
-                        "list": [{"fid": "b", "file_name": "b", "size": 0, "file_type": 1}],
+                        "list": [{"fid": "b", "file_name": "b", "size": 0, "dir": True}],
                         "total": 2,
                     },
                 }
@@ -87,6 +87,37 @@ def test_list_folder_uses_metadata_total_for_pagination():
     items = client.list_folder("folder-id")
 
     assert [item.fid for item in items] == ["a", "b"]
+
+
+def test_list_folder_treats_video_file_type_one_as_file_when_dir_false():
+    session = FakeSession(
+        [
+            FakeResponse(
+                {
+                    "code": 0,
+                    "data": {
+                        "list": [
+                            {
+                                "fid": "video",
+                                "file_name": "movie.mp4",
+                                "size": 3088299229,
+                                "file_type": 1,
+                                "format_type": "video/mp4",
+                                "obj_category": "video",
+                                "dir": False,
+                            }
+                        ],
+                        "total": 1,
+                    },
+                }
+            )
+        ]
+    )
+    client = QuarkClient("cookie-value", session=session)
+
+    items = client.list_folder("folder-id")
+
+    assert items[0].is_folder is False
 
 
 def test_list_folder_raises_auth_error_for_unauthorized_response():
