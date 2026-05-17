@@ -23,9 +23,30 @@ quark-download --cookie "$QUARK_COOKIE" --path "/资料/课程" --output ./downl
 quark-download --cookie-file cookie.txt --fid abc123 --output ./downloads --concurrency 8
 quark-download --path "/电影/big.mkv" --output ./downloads --rate-limit 5M
 quark-download --fid abc123 --output ./downloads --vip-accel auto
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --concurrency 4
+quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./downloads --s3-upload
 ```
 
-Exactly one of `--path` or `--fid` is required.
+Exactly one of `--path`, `--fid`, or `--csv` is required.
+
+## Config File
+
+Use `--config config.toml` to load Quark Cookie and S3 settings.
+
+```toml
+[quark]
+cookie = "b-user-id=...; __uid=...; __puus=..."
+
+[s3]
+bucket = "my-bucket"
+prefix = "videos/"
+region = "ap-southeast-1"
+endpoint_url = ""
+access_key_id = "..."
+secret_access_key = "..."
+```
+
+`endpoint_url` can be empty for AWS S3. Set it for S3-compatible services such as MinIO, R2, or other object storage endpoints.
 
 ## Cookie Sources
 
@@ -33,13 +54,14 @@ Cookie lookup order:
 
 1. `--cookie`
 2. `--cookie-file`
-3. `QUARK_COOKIE`
+3. `[quark].cookie` from `--config`
+4. `QUARK_COOKIE`
 
 The tool redacts Cookie-like values from user-facing error output. Avoid committing Cookie files.
 
 ## Concurrency
 
-`--concurrency` controls how many files download at the same time.
+`--concurrency` controls how many top-level resources download at the same time. With `--csv`, each row is one resource.
 
 `--chunk-concurrency` controls how many byte ranges a large file may download concurrently.
 
@@ -68,6 +90,49 @@ quark-download --fid abc123 --output ./downloads --rate-limit 0
 ```
 
 `0`, `none`, or an omitted value means unlimited.
+
+## CSV Batch Input
+
+CSV files must have a header row. Select the resource column explicitly:
+
+```csv
+quark_path
+films_download_temp/赵子龙_tt13575948
+films_download_temp/另一个资源
+```
+
+```bash
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads
+```
+
+For file IDs:
+
+```csv
+fid
+2e327817fefb4c20ad89f27ad3fbead5
+```
+
+```bash
+quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./downloads
+```
+
+If any row fails, remaining rows continue. The command exits non-zero after the batch if one or more resources failed.
+
+## S3 Upload
+
+Add `--s3-upload` to upload each successfully downloaded file to the configured S3 bucket.
+
+```bash
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload
+```
+
+S3 object keys preserve the local relative path under `--output` and prepend `[s3].prefix`.
+
+Add `--delete-local-after-upload` to remove the local file after a successful upload:
+
+```bash
+quark-download --config config.toml --fid abc123 --output ./downloads --s3-upload --delete-local-after-upload
+```
 
 ## Resume Behavior
 
