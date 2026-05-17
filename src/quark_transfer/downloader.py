@@ -30,6 +30,7 @@ def download_files(
     chunk_concurrency: int = 4,
     range_threshold: int = 64 * 1024 * 1024,
     retries: int = 3,
+    timeout: int = 30,
 ) -> None:
     http = session or requests.Session()
     active_plans = [plan for plan in plans if not plan.skip]
@@ -48,6 +49,7 @@ def download_files(
                 chunk_concurrency,
                 range_threshold,
                 retries,
+                timeout,
             )
             for plan in active_plans
         ]
@@ -64,14 +66,15 @@ def _download_one(
     chunk_concurrency: int,
     range_threshold: int,
     retries: int,
+    timeout: int,
 ) -> None:
     plan.destination.parent.mkdir(parents=True, exist_ok=True)
     download_url = url_provider(plan.record).url
 
     if plan.record.size >= range_threshold and plan.record.size > chunk_size:
-        _download_ranges(plan, download_url, session, bucket, chunk_size, chunk_concurrency, retries)
+        _download_ranges(plan, download_url, session, bucket, chunk_size, chunk_concurrency, retries, timeout)
     else:
-        _download_whole(plan, download_url, session, bucket, retries)
+        _download_whole(plan, download_url, session, bucket, retries, timeout)
 
     if plan.destination.exists():
         plan.destination.unlink()
@@ -84,6 +87,7 @@ def _download_whole(
     session: requests.Session,
     bucket: Bucket | None,
     retries: int,
+    timeout: int,
 ) -> None:
     start = plan.part_path.stat().st_size if plan.resume and plan.part_path.exists() else 0
     headers = {"Range": f"bytes={start}-"} if start else None
@@ -95,6 +99,7 @@ def _download_whole(
         stream=True,
         headers=headers,
         expected_status=expected,
+        timeout=timeout,
     )
     mode = "ab" if start else "wb"
     try:
@@ -119,6 +124,7 @@ def _download_ranges(
     chunk_size: int,
     chunk_concurrency: int,
     retries: int,
+    timeout: int,
 ) -> None:
     plan.part_path.parent.mkdir(parents=True, exist_ok=True)
     with plan.part_path.open("wb") as handle:
@@ -131,7 +137,7 @@ def _download_ranges(
 
     with ThreadPoolExecutor(max_workers=max(1, chunk_concurrency)) as executor:
         futures = [
-            executor.submit(_download_range, plan, url, session, bucket, start, end, retries)
+            executor.submit(_download_range, plan, url, session, bucket, start, end, retries, timeout)
             for start, end in ranges
         ]
         for future in as_completed(futures):
@@ -146,6 +152,7 @@ def _download_range(
     start: int,
     end: int,
     retries: int,
+    timeout: int,
 ) -> None:
     response = _request_with_retries(
         session,
@@ -154,6 +161,7 @@ def _download_range(
         stream=True,
         headers={"Range": f"bytes={start}-{end}"},
         expected_status={206},
+        timeout=timeout,
     )
     try:
         offset = start
@@ -180,11 +188,12 @@ def _request_with_retries(
     stream: bool,
     headers: dict[str, str] | None = None,
     expected_status: set[int] | None = None,
+    timeout: int = 30,
 ):
     expected = expected_status or {200, 206}
     attempts = retries + 1
     for attempt in range(attempts):
-        response = session.get(url, stream=stream, headers=headers or {})
+        response = session.get(url, stream=stream, headers=headers or {}, timeout=timeout)
         if response.status_code in expected:
             return response
         if response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:

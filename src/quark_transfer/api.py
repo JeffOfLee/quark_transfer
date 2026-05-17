@@ -19,10 +19,18 @@ class QuarkClient:
         "high_speed_download_url",
     )
 
-    def __init__(self, cookie: str, *, session: requests.Session | None = None, page_size: int = 50):
+    def __init__(
+        self,
+        cookie: str,
+        *,
+        session: requests.Session | None = None,
+        page_size: int = 50,
+        timeout: int = 30,
+    ):
         self.cookie = cookie
         self.session = session or requests.Session()
         self.page_size = page_size
+        self.timeout = timeout
 
     def list_folder(self, parent_fid: str = "0") -> list[CloudItem]:
         page = 1
@@ -88,11 +96,11 @@ class QuarkClient:
         return DownloadUrl(normal_url, accelerated=False)
 
     def _get_json(self, url: str, **kwargs: Any) -> dict[str, Any]:
-        response = self.session.get(url, headers=self._headers(), **kwargs)
+        response = self.session.get(url, headers=self._headers(), timeout=self.timeout, **kwargs)
         return self._validate_response(response)
 
     def _post_json(self, url: str, **kwargs: Any) -> dict[str, Any]:
-        response = self.session.post(url, headers=self._headers(), **kwargs)
+        response = self.session.post(url, headers=self._headers(), timeout=self.timeout, **kwargs)
         return self._validate_response(response)
 
     def _headers(self) -> dict[str, str]:

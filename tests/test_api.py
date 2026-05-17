@@ -59,6 +59,7 @@ def test_list_folder_paginates_and_sends_cookie_header():
     assert session.calls[0][1] == "https://drive-pc.quark.cn/1/clouddrive/file/sort"
     assert session.calls[0][2]["headers"]["Cookie"] == "cookie-value"
     assert session.calls[0][2]["params"]["pdir_fid"] == "folder-id"
+    assert session.calls[0][2]["timeout"] == 30
     assert session.calls[1][2]["params"]["_page"] == "2"
 
 
@@ -88,6 +89,7 @@ def test_download_url_auto_prefers_vip_url_and_falls_back_to_normal_url():
     assert normal_url.accelerated is False
     assert session.calls[0][1] == "https://drive.quark.cn/1/clouddrive/file/download?pr=ucpro&fr=pc"
     assert session.calls[0][2]["json"] == {"fids": ["fid-1"]}
+    assert session.calls[0][2]["timeout"] == 30
 
 
 def test_download_url_on_requires_vip_url():
