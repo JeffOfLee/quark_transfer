@@ -11,6 +11,11 @@ from .models import CloudItem, DownloadUrl, VipAccelMode
 class QuarkClient:
     LIST_URL = "https://drive-pc.quark.cn/1/clouddrive/file/sort"
     DOWNLOAD_URL = "https://drive.quark.cn/1/clouddrive/file/download?pr=ucpro&fr=pc"
+    USER_AGENT = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) quark-cloud-drive/2.5.20 Chrome/100.0.4896.160 "
+        "Electron/18.3.5.4-b478491100 Safari/537.36 Channel/pckk_other_ch"
+    )
     VIP_FIELDS = (
         "vip_download_url",
         "download_url_vip",
@@ -108,7 +113,7 @@ class QuarkClient:
         return {
             "Cookie": self.cookie,
             "Accept": "application/json, text/plain, */*",
-            "User-Agent": "Mozilla/5.0 quark-transfer/0.1.0",
+            "User-Agent": self.USER_AGENT,
             "Referer": "https://pan.quark.cn/",
         }
 

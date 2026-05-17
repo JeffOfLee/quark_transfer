@@ -58,6 +58,7 @@ def test_list_folder_paginates_and_sends_cookie_header():
     assert [item.fid for item in items] == ["a", "b"]
     assert session.calls[0][1] == "https://drive-pc.quark.cn/1/clouddrive/file/sort"
     assert session.calls[0][2]["headers"]["Cookie"] == "cookie-value"
+    assert "quark-cloud-drive" in session.calls[0][2]["headers"]["User-Agent"]
     assert session.calls[0][2]["params"]["pdir_fid"] == "folder-id"
     assert session.calls[0][2]["timeout"] == 30
     assert session.calls[1][2]["params"]["_page"] == "2"

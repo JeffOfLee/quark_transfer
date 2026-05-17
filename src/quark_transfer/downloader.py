@@ -17,6 +17,11 @@ class Bucket(Protocol):
 
 
 UrlProvider = Callable[[DownloadRecord], DownloadUrl]
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) quark-cloud-drive/2.5.20 Chrome/100.0.4896.160 "
+    "Electron/18.3.5.4-b478491100 Safari/537.36 Channel/pckk_other_ch"
+)
 
 
 def download_files(
@@ -191,9 +196,11 @@ def _request_with_retries(
     timeout: int = 30,
 ):
     expected = expected_status or {200, 206}
+    request_headers = {"User-Agent": USER_AGENT}
+    request_headers.update(headers or {})
     attempts = retries + 1
     for attempt in range(attempts):
-        response = session.get(url, stream=stream, headers=headers or {}, timeout=timeout)
+        response = session.get(url, stream=stream, headers=request_headers, timeout=timeout)
         if response.status_code in expected:
             return response
         if response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:

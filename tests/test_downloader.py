@@ -61,6 +61,7 @@ def test_download_writes_part_then_renames(tmp_path: Path):
     assert not plan.part_path.exists()
     assert bucket.consumed == [5]
     assert session.calls[0][1]["timeout"] == 30
+    assert "quark-cloud-drive" in session.calls[0][1]["headers"]["User-Agent"]
 
 
 def test_download_skips_marked_plan_without_request(tmp_path: Path):
