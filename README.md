@@ -25,6 +25,7 @@ quark-download --path "/电影/big.mkv" --output ./downloads --rate-limit 5M
 quark-download --fid abc123 --output ./downloads --vip-accel auto
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --concurrency 4
 quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./downloads --s3-upload
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --meta result.csv --verbose
 ```
 
 Exactly one of `--path`, `--fid`, or `--csv` is required.
@@ -126,13 +127,37 @@ Add `--s3-upload` to upload each successfully downloaded file to the configured 
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload
 ```
 
-S3 object keys preserve the local relative path under `--output` and prepend `[s3].prefix`.
+S3 object keys use this rule:
+
+```text
+{prefix}/{sha256(path)}.{ext}
+```
+
+For path-based tasks, the hash input is the Quark path plus the expanded nested filename. For fid-based tasks, the hash input uses the fid plus the expanded nested filename. The extension is preserved from the local filename.
 
 Add `--delete-local-after-upload` to remove the local file after a successful upload:
 
 ```bash
 quark-download --config config.toml --fid abc123 --output ./downloads --s3-upload --delete-local-after-upload
 ```
+
+With `--verbose`, uploads log the S3 key, file size, duration, upload rate, and result.
+
+## Metadata CSV
+
+Use `--meta result.csv` to write transfer metadata:
+
+```bash
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --meta result.csv
+```
+
+Columns:
+
+```csv
+path,fid,video_size,video_format,key,upload_start_time,upload_end_time,transfer_status,error_message
+```
+
+`transfer_status` is values such as `downloaded`, `uploaded`, `skip`, or `failed`. `error_message` is populated for failed resources.
 
 ## Resume Behavior
 
