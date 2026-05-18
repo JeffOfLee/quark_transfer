@@ -68,7 +68,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--s3-upload", action="store_true")
-    parser.add_argument("--delete-local-after-upload", action="store_true")
+    parser.add_argument(
+        "--delete-local-after-upload",
+        "--delete",
+        dest="delete_local_after_upload",
+        action="store_true",
+        help="Delete local video files after successful S3 upload.",
+    )
     parser.add_argument("--meta", dest="meta_path", type=Path)
     return parser
 

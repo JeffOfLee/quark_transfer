@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from quark_transfer.batch import ResourceSpec
-from quark_transfer.cli import Config, _hash_source, _run_resource, build_config, main, run
+from quark_transfer.cli import Config, _hash_source, _run_resource, build_config, build_parser, main, run
 from quark_transfer.errors import ConfigError, QuarkTransferError
 from quark_transfer.models import DownloadRecord, VipAccelMode
 from quark_transfer.planner import DownloadPlan
@@ -89,6 +89,26 @@ def test_build_config_requires_s3_config_when_s3_upload_enabled(tmp_path: Path):
 
     with pytest.raises(ConfigError, match="s3"):
         build_config(["--config", str(config_file), "--fid", "fid", "--output", str(tmp_path), "--s3-upload"])
+
+
+def test_build_config_delete_alias_enables_delete_local_after_upload(tmp_path: Path):
+    config = build_config(
+        [
+            "--cookie",
+            "cookie-value",
+            "--fid",
+            "fid",
+            "--output",
+            str(tmp_path),
+            "--delete",
+        ]
+    )
+
+    assert config.delete_local_after_upload is True
+
+
+def test_help_includes_delete_alias():
+    assert "--delete-local-after-upload, --delete" in build_parser().format_help()
 
 
 def test_build_config_parses_meta_path(tmp_path: Path):

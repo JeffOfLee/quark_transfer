@@ -135,10 +135,10 @@ S3 object keys use this rule:
 
 For path-based tasks, the hash input is the Quark path plus the expanded nested filename. For fid-based tasks, the hash input uses the fid plus the expanded nested filename. The extension is preserved from the local filename.
 
-Add `--delete-local-after-upload` to remove the local file after a successful upload:
+Add `--delete` to remove the local file after a successful upload. The longer `--delete-local-after-upload` form is also supported.
 
 ```bash
-quark-download --config config.toml --fid abc123 --output ./downloads --s3-upload --delete-local-after-upload
+quark-download --config config.toml --fid abc123 --output ./downloads --s3-upload --delete
 ```
 
 With `--verbose`, uploads log the S3 key, file size, duration, upload rate, and result.
