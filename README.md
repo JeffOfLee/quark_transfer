@@ -27,6 +27,7 @@ quark-download --config config.toml --csv tasks.csv --path-column quark_path --o
 quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./downloads --s3-upload
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --meta result.csv --verbose
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --video-only
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --transfer-cache-storage 20G
 ```
 
 Exactly one of `--path`, `--fid`, or `--csv` is required.
@@ -121,6 +122,14 @@ quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./
 If any row fails, remaining rows continue. The command exits non-zero after the batch if one or more resources failed.
 
 Add `--video-only` to filter resolved folders so only common video extensions such as `mp4`, `mkv`, `mov`, `avi`, `wmv`, `flv`, `webm`, and `ts` are downloaded and transferred.
+
+Add `--transfer-cache-storage` to limit local storage used by transfer cache:
+
+```bash
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --transfer-cache-storage 20G
+```
+
+The value accepts size suffixes such as `500M` or `20G`. Any single file larger than the limit is rejected before download. When local files are retained, the total planned batch size must also fit the limit. With `--delete`, local files are removed after successful S3 upload, so only the per-file limit is enforced.
 
 ## S3 Upload
 

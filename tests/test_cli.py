@@ -123,6 +123,23 @@ def test_build_config_parses_video_only(tmp_path: Path):
     assert config.video_only is True
 
 
+def test_build_config_parses_transfer_cache_storage(tmp_path: Path):
+    config = build_config(
+        [
+            "--cookie",
+            "cookie-value",
+            "--fid",
+            "fid",
+            "--output",
+            str(tmp_path),
+            "--transfer-cache-storage",
+            "10M",
+        ]
+    )
+
+    assert config.transfer_cache_storage == 10 * 1024 * 1024
+
+
 def test_help_includes_delete_alias():
     assert "--delete-local-after-upload, --delete" in build_parser().format_help()
 
@@ -277,6 +294,33 @@ def test_run_resource_video_only_filters_non_video_records(monkeypatch, tmp_path
     assert planned_records == [video]
 
 
+def test_run_resource_rejects_file_larger_than_transfer_cache_limit(monkeypatch, tmp_path: Path):
+    record = DownloadRecord(fid="video", name="movie.mp4", size=11)
+
+    monkeypatch.setattr("quark_transfer.cli.QuarkClient", lambda cookie: object())
+    monkeypatch.setattr("quark_transfer.cli.resolve_fid", lambda client, fid: [record])
+    monkeypatch.setattr("quark_transfer.cli.build_download_plans", lambda records, output, overwrite=False: [])
+    config = _config(tmp_path, resources=[ResourceSpec(fid="fid")], transfer_cache_storage=10)
+
+    with pytest.raises(ConfigError, match="transfer cache"):
+        _run_resource(config, config.resources[0], None)
+
+
+def test_run_rejects_total_batch_size_larger_than_transfer_cache_limit(monkeypatch, tmp_path: Path):
+    def fake_estimate_resource_size(config, resource):
+        return 6
+
+    monkeypatch.setattr("quark_transfer.cli._estimate_resource_size", fake_estimate_resource_size)
+    config = _config(
+        tmp_path,
+        resources=[ResourceSpec(fid="one"), ResourceSpec(fid="two")],
+        transfer_cache_storage=10,
+    )
+
+    with pytest.raises(ConfigError, match="transfer cache"):
+        run(config)
+
+
 def test_hash_source_prefers_path_and_includes_nested_filename():
     record = DownloadRecord(fid="fid", name="movie.mp4", size=5)
     plan = DownloadPlan(
@@ -297,6 +341,7 @@ def _config(
     meta_path=None,
     verbose=False,
     video_only=False,
+    transfer_cache_storage=None,
 ):
     return Config(
         cookie="cookie-value",
@@ -318,4 +363,5 @@ def _config(
         meta_path=meta_path,
         meta_row_factory=__import__("quark_transfer.meta", fromlist=["MetaRow"]).MetaRow,
         video_only=video_only,
+        transfer_cache_storage=transfer_cache_storage,
     )

@@ -5,7 +5,7 @@ import time
 
 from .errors import ConfigError
 
-_RATE_RE = re.compile(r"^(?P<number>\d+)(?P<unit>k|kb|m|mb)?$", re.IGNORECASE)
+_RATE_RE = re.compile(r"^(?P<number>\d+)(?P<unit>k|kb|m|mb|g|gb)?$", re.IGNORECASE)
 
 
 def parse_rate_limit(value: str | None) -> int | None:
@@ -26,6 +26,8 @@ def parse_rate_limit(value: str | None) -> int | None:
         return amount * 1024
     if unit in {"m", "mb"}:
         return amount * 1024 * 1024
+    if unit in {"g", "gb"}:
+        return amount * 1024 * 1024 * 1024
     return amount
 
 

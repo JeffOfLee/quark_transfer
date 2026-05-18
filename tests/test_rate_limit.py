@@ -16,6 +16,8 @@ def test_unlimited_rate_limit_values(value):
         ("500kb", 500 * 1024),
         ("5M", 5 * 1024 * 1024),
         ("5mb", 5 * 1024 * 1024),
+        ("2G", 2 * 1024 * 1024 * 1024),
+        ("2gb", 2 * 1024 * 1024 * 1024),
         ("42", 42),
     ],
 )
@@ -23,7 +25,7 @@ def test_parse_rate_limit_units(value, expected):
     assert parse_rate_limit(value) == expected
 
 
-@pytest.mark.parametrize("value", ["abc", "-1", "1G", "1.5M"])
+@pytest.mark.parametrize("value", ["abc", "-1", "1.5M"])
 def test_invalid_rate_limit_values_raise_config_error(value):
     with pytest.raises(ConfigError, match="rate limit"):
         parse_rate_limit(value)

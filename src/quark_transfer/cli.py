@@ -44,6 +44,7 @@ class Config:
     meta_path: Path | None
     meta_row_factory: type[MetaRow] = MetaRow
     video_only: bool = False
+    transfer_cache_storage: int | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--meta", dest="meta_path", type=Path)
     parser.add_argument("--video-only", action="store_true", help="Only download and transfer video files.")
+    parser.add_argument(
+        "--transfer-cache-storage",
+        type=_parse_size,
+        help="Maximum local bytes used for transfer cache, e.g. 10G or 500M.",
+    )
     return parser
 
 
@@ -107,6 +113,7 @@ def build_config(argv: Sequence[str] | None = None) -> Config:
         delete_local_after_upload=args.delete_local_after_upload,
         meta_path=args.meta_path,
         video_only=args.video_only,
+        transfer_cache_storage=args.transfer_cache_storage,
     )
 
 
@@ -114,6 +121,7 @@ def run(config: Config) -> None:
     failures: list[str] = []
     meta_rows: list[MetaRow] = []
     s3_uploader = S3Uploader(config.s3_config) if config.s3_upload and config.s3_config else None
+    _enforce_batch_transfer_cache_limit(config)
 
     with ThreadPoolExecutor(max_workers=max(1, config.concurrency)) as executor:
         futures = {
@@ -152,6 +160,7 @@ def _run_resource(config: Config, resource: ResourceSpec, s3_uploader: S3Uploade
     records = resolve_path(client, resource.path) if resource.path else resolve_fid(client, resource.fid or "")
     if config.video_only:
         records = [record for record in records if _is_video_file(record.name)]
+    _enforce_transfer_cache_limit(config, records)
     plans = build_download_plans(records, config.output, overwrite=config.overwrite)
     meta_rows: list[MetaRow] = []
 
@@ -330,6 +339,36 @@ def _is_video_file(name: str) -> bool:
         ".webm",
         ".wmv",
     }
+
+
+def _enforce_transfer_cache_limit(config: Config, records) -> None:
+    if config.transfer_cache_storage is None:
+        return
+    for record in records:
+        if record.size > config.transfer_cache_storage:
+            raise ConfigError(
+                f"File exceeds transfer cache storage limit: {record.name} "
+                f"({record.size} > {config.transfer_cache_storage})"
+            )
+
+
+def _enforce_batch_transfer_cache_limit(config: Config) -> None:
+    if config.transfer_cache_storage is None or config.delete_local_after_upload:
+        return
+    total_size = sum(_estimate_resource_size(config, resource) for resource in config.resources)
+    if total_size > config.transfer_cache_storage:
+        raise ConfigError(
+            f"Batch exceeds transfer cache storage limit: {total_size} > {config.transfer_cache_storage}"
+        )
+
+
+def _estimate_resource_size(config: Config, resource: ResourceSpec) -> int:
+    client = QuarkClient(config.cookie)
+    records = resolve_path(client, resource.path) if resource.path else resolve_fid(client, resource.fid or "")
+    if config.video_only:
+        records = [record for record in records if _is_video_file(record.name)]
+    _enforce_transfer_cache_limit(config, records)
+    return sum(record.size for record in records)
 
 
 if __name__ == "__main__":
