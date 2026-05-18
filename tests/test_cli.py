@@ -140,6 +140,23 @@ def test_build_config_parses_transfer_cache_storage(tmp_path: Path):
     assert config.transfer_cache_storage == 10 * 1024 * 1024
 
 
+def test_build_config_parses_key_gen_origin(tmp_path: Path):
+    config = build_config(
+        [
+            "--cookie",
+            "cookie-value",
+            "--fid",
+            "fid",
+            "--output",
+            str(tmp_path),
+            "--key-gen",
+            "origin",
+        ]
+    )
+
+    assert config.key_gen == "origin"
+
+
 def test_help_includes_delete_alias():
     assert "--delete-local-after-upload, --delete" in build_parser().format_help()
 
@@ -235,8 +252,8 @@ def test_run_resource_uploads_to_s3_logs_result_and_deletes_local_file(monkeypat
     uploads = []
 
     class FakeUploader:
-        def upload_file(self, path, *, hash_source):
-            uploads.append((path, hash_source))
+        def upload_file(self, path, *, hash_source, origin_source, key_gen):
+            uploads.append((path, hash_source, origin_source, key_gen))
             return UploadResult(
                 key="videos/hash.mp4",
                 bytes_uploaded=5,
@@ -265,7 +282,7 @@ def test_run_resource_uploads_to_s3_logs_result_and_deletes_local_file(monkeypat
     assert "s3 upload complete" in captured.err
     assert "videos/hash.mp4" in captured.err
     assert "rate=0.00 MiB/s" in captured.err
-    assert uploads == [(destination, "fid/movie.mp4")]
+    assert uploads == [(destination, "fid/movie.mp4", "fid/movie.mp4", "hash")]
     assert not destination.exists()
     assert rows[0].key == "videos/hash.mp4"
     assert rows[0].transfer_status == "uploaded"
@@ -333,6 +350,18 @@ def test_hash_source_prefers_path_and_includes_nested_filename():
     assert _hash_source(ResourceSpec(fid="fid"), plan) == "fid/nested/movie.mp4"
 
 
+def test_origin_source_prefers_path_and_includes_nested_filename():
+    record = DownloadRecord(fid="fid", name="movie.mp4", size=5)
+    plan = DownloadPlan(
+        record=record,
+        destination=Path("out") / "nested" / "movie.mp4",
+        part_path=Path("out") / "nested" / "movie.mp4.part",
+    )
+
+    assert _hash_source(ResourceSpec(path="/folder"), plan) == "/folder/nested/movie.mp4"
+    assert _hash_source(ResourceSpec(fid="fid"), plan) == "fid/nested/movie.mp4"
+
+
 def _config(
     tmp_path: Path,
     *,
@@ -364,4 +393,5 @@ def _config(
         meta_row_factory=__import__("quark_transfer.meta", fromlist=["MetaRow"]).MetaRow,
         video_only=video_only,
         transfer_cache_storage=transfer_cache_storage,
+        key_gen="hash",
     )

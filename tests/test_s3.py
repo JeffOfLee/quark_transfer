@@ -47,3 +47,20 @@ def test_s3_uploader_normalizes_empty_prefix(tmp_path: Path):
 
     expected_hash = hashlib.sha256("movie.mp4".encode("utf-8")).hexdigest()
     assert result.key == f"{expected_hash}.mp4"
+
+
+def test_s3_uploader_origin_key_mode_uses_original_path(tmp_path: Path):
+    file_path = tmp_path / "movie.mp4"
+    file_path.write_bytes(b"video")
+    client = FakeS3Client()
+    uploader = S3Uploader(S3Config(bucket="bucket", prefix="videos/"), client=client)
+
+    result = uploader.upload_file(
+        file_path,
+        hash_source="ignored",
+        origin_source="films_download_temp/赵子龙/movie.mp4",
+        key_gen="origin",
+    )
+
+    assert result.key == "videos/films_download_temp/赵子龙/movie.mp4"
+    assert client.uploads == [(str(file_path), "bucket", "videos/films_download_temp/赵子龙/movie.mp4")]

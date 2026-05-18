@@ -37,9 +37,18 @@ class S3Uploader:
         self.config = config
         self.client = client or self._build_client(config)
 
-    def upload_file(self, file_path: str | Path, *, hash_source: str, clock=time.time) -> UploadResult:
+    def upload_file(
+        self,
+        file_path: str | Path,
+        *,
+        hash_source: str,
+        origin_source: str | None = None,
+        key_gen: str = "hash",
+        clock=time.time,
+    ) -> UploadResult:
         path = Path(file_path)
-        key = _join_key(self.config.prefix, _hashed_name(hash_source, path.suffix))
+        key_name = _key_name(key_gen=key_gen, hash_source=hash_source, origin_source=origin_source, suffix=path.suffix)
+        key = _join_key(self.config.prefix, key_name)
         start_time = clock()
         self.client.upload_file(str(path), self.config.bucket, key)
         end_time = clock()
@@ -75,3 +84,13 @@ def _join_key(prefix: str, relative_path: str) -> str:
 def _hashed_name(hash_source: str, suffix: str) -> str:
     digest = hashlib.sha256(hash_source.encode("utf-8")).hexdigest()
     return f"{digest}{suffix}"
+
+
+def _key_name(*, key_gen: str, hash_source: str, origin_source: str | None, suffix: str) -> str:
+    if key_gen == "hash":
+        return _hashed_name(hash_source, suffix)
+    if key_gen == "origin":
+        if not origin_source:
+            raise ValueError("origin_source is required when key_gen='origin'")
+        return origin_source.strip("/")
+    raise ValueError(f"Unsupported key generation mode: {key_gen}")

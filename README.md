@@ -28,6 +28,7 @@ quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --meta result.csv --verbose
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --video-only
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --transfer-cache-storage 20G
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --key-gen origin
 ```
 
 Exactly one of `--path`, `--fid`, or `--csv` is required.
@@ -139,13 +140,21 @@ Add `--s3-upload` to upload each successfully downloaded file to the configured 
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload
 ```
 
-S3 object keys use this rule:
+S3 object keys use `--key-gen hash` by default:
 
 ```text
 {prefix}/{sha256(path)}.{ext}
 ```
 
 For path-based tasks, the hash input is the Quark path plus the expanded nested filename. For fid-based tasks, the hash input uses the fid plus the expanded nested filename. The extension is preserved from the local filename.
+
+Use `--key-gen origin` to keep the original Quark path:
+
+```text
+{prefix}/{original-cloud-path}
+```
+
+For fid-based tasks in origin mode, the key uses the fid plus expanded nested filename because no original path was provided.
 
 Add `--delete` to remove the local file after a successful upload. The longer `--delete-local-after-upload` form is also supported.
 

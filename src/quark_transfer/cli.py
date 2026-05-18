@@ -45,6 +45,7 @@ class Config:
     meta_row_factory: type[MetaRow] = MetaRow
     video_only: bool = False
     transfer_cache_storage: int | None = None
+    key_gen: str = "hash"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -84,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=_parse_size,
         help="Maximum local bytes used for transfer cache, e.g. 10G or 500M.",
     )
+    parser.add_argument(
+        "--key-gen",
+        choices=["hash", "origin"],
+        default="hash",
+        help="S3 key generation mode: hash or origin.",
+    )
     return parser
 
 
@@ -114,6 +121,7 @@ def build_config(argv: Sequence[str] | None = None) -> Config:
         meta_path=args.meta_path,
         video_only=args.video_only,
         transfer_cache_storage=args.transfer_cache_storage,
+        key_gen=args.key_gen,
     )
 
 
@@ -192,6 +200,8 @@ def _run_resource(config: Config, resource: ResourceSpec, s3_uploader: S3Uploade
                 upload_result = s3_uploader.upload_file(
                     plan.destination,
                     hash_source=_hash_source(resource, plan, config.output),
+                    origin_source=_hash_source(resource, plan, config.output),
+                    key_gen=config.key_gen,
                 )
                 _log(
                     config,
