@@ -26,6 +26,7 @@ quark-download --fid abc123 --output ./downloads --vip-accel auto
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --concurrency 4
 quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./downloads --s3-upload
 quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --meta result.csv --verbose
+quark-download --config config.toml --csv tasks.csv --path-column quark_path --output ./downloads --s3-upload --video-only
 ```
 
 Exactly one of `--path`, `--fid`, or `--csv` is required.
@@ -118,6 +119,8 @@ quark-download --config config.toml --csv tasks.csv --fid-column fid --output ./
 ```
 
 If any row fails, remaining rows continue. The command exits non-zero after the batch if one or more resources failed.
+
+Add `--video-only` to filter resolved folders so only common video extensions such as `mp4`, `mkv`, `mov`, `avi`, `wmv`, `flv`, `webm`, and `ts` are downloaded and transferred.
 
 ## S3 Upload
 

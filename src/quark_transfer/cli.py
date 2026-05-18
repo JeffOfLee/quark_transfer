@@ -43,6 +43,7 @@ class Config:
     delete_local_after_upload: bool
     meta_path: Path | None
     meta_row_factory: type[MetaRow] = MetaRow
+    video_only: bool = False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,6 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete local video files after successful S3 upload.",
     )
     parser.add_argument("--meta", dest="meta_path", type=Path)
+    parser.add_argument("--video-only", action="store_true", help="Only download and transfer video files.")
     return parser
 
 
@@ -104,6 +106,7 @@ def build_config(argv: Sequence[str] | None = None) -> Config:
         s3_config=app_config.s3,
         delete_local_after_upload=args.delete_local_after_upload,
         meta_path=args.meta_path,
+        video_only=args.video_only,
     )
 
 
@@ -147,6 +150,8 @@ def _run_resource(config: Config, resource: ResourceSpec, s3_uploader: S3Uploade
     _log(config, f"resource start path={resource.path or ''} fid={resource.fid or ''}")
     client = QuarkClient(config.cookie)
     records = resolve_path(client, resource.path) if resource.path else resolve_fid(client, resource.fid or "")
+    if config.video_only:
+        records = [record for record in records if _is_video_file(record.name)]
     plans = build_download_plans(records, config.output, overwrite=config.overwrite)
     meta_rows: list[MetaRow] = []
 
@@ -305,6 +310,26 @@ def _mib_per_second(bytes_per_second: float) -> float:
 def _log(config: Config, message: str) -> None:
     if config.verbose:
         print(message, file=sys.stderr)
+
+
+def _is_video_file(name: str) -> bool:
+    return Path(name).suffix.lower() in {
+        ".3gp",
+        ".avi",
+        ".flv",
+        ".m2ts",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp4",
+        ".mpeg",
+        ".mpg",
+        ".rm",
+        ".rmvb",
+        ".ts",
+        ".webm",
+        ".wmv",
+    }
 
 
 if __name__ == "__main__":

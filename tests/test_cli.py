@@ -107,6 +107,22 @@ def test_build_config_delete_alias_enables_delete_local_after_upload(tmp_path: P
     assert config.delete_local_after_upload is True
 
 
+def test_build_config_parses_video_only(tmp_path: Path):
+    config = build_config(
+        [
+            "--cookie",
+            "cookie-value",
+            "--fid",
+            "fid",
+            "--output",
+            str(tmp_path),
+            "--video-only",
+        ]
+    )
+
+    assert config.video_only is True
+
+
 def test_help_includes_delete_alias():
     assert "--delete-local-after-upload, --delete" in build_parser().format_help()
 
@@ -240,6 +256,27 @@ def test_run_resource_uploads_to_s3_logs_result_and_deletes_local_file(monkeypat
     assert rows[0].upload_end_time
 
 
+def test_run_resource_video_only_filters_non_video_records(monkeypatch, tmp_path: Path):
+    video = DownloadRecord(fid="video", name="movie.MP4", size=5)
+    subtitle = DownloadRecord(fid="subtitle", name="movie.srt", size=1)
+    planned_records = []
+
+    monkeypatch.setattr("quark_transfer.cli.QuarkClient", lambda cookie: object())
+    monkeypatch.setattr("quark_transfer.cli.resolve_fid", lambda client, fid: [video, subtitle])
+
+    def fake_build_download_plans(records, output, overwrite=False):
+        planned_records.extend(records)
+        return []
+
+    monkeypatch.setattr("quark_transfer.cli.build_download_plans", fake_build_download_plans)
+    monkeypatch.setattr("quark_transfer.cli.download_files", lambda *args, **kwargs: None)
+    config = _config(tmp_path, resources=[ResourceSpec(fid="fid")], video_only=True)
+
+    _run_resource(config, config.resources[0], None)
+
+    assert planned_records == [video]
+
+
 def test_hash_source_prefers_path_and_includes_nested_filename():
     record = DownloadRecord(fid="fid", name="movie.mp4", size=5)
     plan = DownloadPlan(
@@ -252,7 +289,15 @@ def test_hash_source_prefers_path_and_includes_nested_filename():
     assert _hash_source(ResourceSpec(fid="fid"), plan) == "fid/nested/movie.mp4"
 
 
-def _config(tmp_path: Path, *, resources, delete_local_after_upload=False, meta_path=None, verbose=False):
+def _config(
+    tmp_path: Path,
+    *,
+    resources,
+    delete_local_after_upload=False,
+    meta_path=None,
+    verbose=False,
+    video_only=False,
+):
     return Config(
         cookie="cookie-value",
         path=None,
@@ -272,4 +317,5 @@ def _config(tmp_path: Path, *, resources, delete_local_after_upload=False, meta_
         delete_local_after_upload=delete_local_after_upload,
         meta_path=meta_path,
         meta_row_factory=__import__("quark_transfer.meta", fromlist=["MetaRow"]).MetaRow,
+        video_only=video_only,
     )
