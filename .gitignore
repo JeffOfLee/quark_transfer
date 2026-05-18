@@ -8,4 +8,7 @@ dist/
 build/
 *.part
 *.part.json
+config.toml
+downloads/
+result.csv
 
