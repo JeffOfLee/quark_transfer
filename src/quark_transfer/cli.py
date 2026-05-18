@@ -115,7 +115,7 @@ def run(config: Config) -> None:
             resource = futures[future]
             try:
                 meta_rows.extend(future.result() or [])
-            except QuarkTransferError as exc:
+            except Exception as exc:
                 failures.append(str(exc))
                 meta_rows.append(
                     config.meta_row_factory(
@@ -169,30 +169,43 @@ def _run_resource(config: Config, resource: ResourceSpec, s3_uploader: S3Uploade
                 continue
             if plan.destination.exists():
                 _log(config, f"s3 upload start path={plan.destination}")
-                upload_result = s3_uploader.upload_file(
-                    plan.destination,
-                    hash_source=_hash_source(resource, plan, config.output),
-                )
-                _log(
-                    config,
-                    "s3 upload complete "
-                    f"key={upload_result.key} size={upload_result.bytes_uploaded} "
-                    f"duration={upload_result.duration_seconds:.2f}s "
-                    f"rate={_mib_per_second(upload_result.bytes_per_second):.2f} MiB/s",
-                )
-                meta_rows.append(
-                    _meta_row(
-                        config,
-                        resource,
-                        plan,
-                        key=upload_result.key,
-                        upload_start_time=_iso_time(upload_result.start_time),
-                        upload_end_time=_iso_time(upload_result.end_time),
-                        transfer_status="uploaded",
+                try:
+                    upload_result = s3_uploader.upload_file(
+                        plan.destination,
+                        hash_source=_hash_source(resource, plan, config.output),
                     )
-                )
-                if config.delete_local_after_upload:
-                    plan.destination.unlink()
+                except Exception as exc:
+                    _log(config, f"s3 upload failed path={plan.destination}: {exc}")
+                    meta_rows.append(
+                        _meta_row(
+                            config,
+                            resource,
+                            plan,
+                            transfer_status="failed",
+                            error_message=str(exc),
+                        )
+                    )
+                else:
+                    _log(
+                        config,
+                        "s3 upload complete "
+                        f"key={upload_result.key} size={upload_result.bytes_uploaded} "
+                        f"duration={upload_result.duration_seconds:.2f}s "
+                        f"rate={_mib_per_second(upload_result.bytes_per_second):.2f} MiB/s",
+                    )
+                    meta_rows.append(
+                        _meta_row(
+                            config,
+                            resource,
+                            plan,
+                            key=upload_result.key,
+                            upload_start_time=_iso_time(upload_result.start_time),
+                            upload_end_time=_iso_time(upload_result.end_time),
+                            transfer_status="uploaded",
+                        )
+                    )
+                    if config.delete_local_after_upload:
+                        plan.destination.unlink()
     else:
         meta_rows.extend(_meta_row(config, resource, plan, transfer_status="downloaded") for plan in plans)
     _log(config, f"resource complete path={resource.path or ''} fid={resource.fid or ''}")

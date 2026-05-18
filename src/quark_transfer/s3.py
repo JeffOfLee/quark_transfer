@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,9 +9,11 @@ from typing import Protocol
 
 from .config import S3Config
 
+logger = logging.getLogger(__name__)
+
 
 class S3Client(Protocol):
-    def upload_file(self, filename: str, bucket: str, key: str) -> None: ...
+    def upload_file(self, filename: str, bucket: str, key: str, **kwargs: object) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -35,13 +38,32 @@ class UploadResult:
 class S3Uploader:
     def __init__(self, config: S3Config, *, client: S3Client | None = None):
         self.config = config
-        self.client = client or self._build_client(config)
+        self._transfer_config = None
+        if client is not None:
+            self.client = client
+        else:
+            self.client = self._build_client(config)
 
     def upload_file(self, file_path: str | Path, *, hash_source: str, clock=time.time) -> UploadResult:
+        import boto3.exceptions
+
         path = Path(file_path)
         key = _join_key(self.config.prefix, _hashed_name(hash_source, path.suffix))
         start_time = clock()
-        self.client.upload_file(str(path), self.config.bucket, key)
+
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                kwargs: dict[str, object] = {}
+                if self._transfer_config is not None:
+                    kwargs["Config"] = self._transfer_config
+                self.client.upload_file(str(path), self.config.bucket, key, **kwargs)
+                break
+            except Exception as exc:
+                logger.warning("S3 upload attempt %s/%s failed for %s: %s", attempt, max_attempts, key, exc)
+                if attempt == max_attempts:
+                    raise
+
         end_time = clock()
         return UploadResult(
             key=key,
@@ -52,6 +74,7 @@ class S3Uploader:
 
     def _build_client(self, config: S3Config) -> S3Client:
         import boto3
+        from boto3.s3.transfer import TransferConfig
 
         kwargs = {}
         if config.region:
@@ -62,7 +85,13 @@ class S3Uploader:
             kwargs["aws_access_key_id"] = config.access_key_id
         if config.secret_access_key:
             kwargs["aws_secret_access_key"] = config.secret_access_key
-        return boto3.client("s3", **kwargs)
+        client = boto3.client("s3", **kwargs)
+        self._transfer_config = TransferConfig(
+            multipart_chunksize=64 * 1024 * 1024,
+            max_concurrency=2,
+            use_threads=True,
+        )
+        return client
 
 
 def _join_key(prefix: str, relative_path: str) -> str:
